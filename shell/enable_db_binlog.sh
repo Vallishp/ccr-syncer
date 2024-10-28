@@ -57,7 +57,7 @@ for table in $tables; do
     is_view_or_external_table="false"
     for view_or_external_table in $view_or_external_tables; do
       if [ "$view_or_external_table" == "$table" ]; then
-        is_view_or_ex_table="true"
+        is_view_or_external_table="true"
         break
       fi
     done
