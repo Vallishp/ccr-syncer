@@ -21,6 +21,9 @@ const (
 	degree = 128
 
 	showErrMsg = "show proc '/dbs/' failed"
+
+	TABLE_TYPE_OLAP = "OLAP"
+	TABLE_TYPE_VIEW = "VIEW"
 )
 
 // All Update* functions force to update meta from fe
@@ -1023,10 +1026,20 @@ func (m *Meta) GetTables() (map[int64]*TableMeta, error) {
 		if err != nil {
 			return nil, xerror.Wrapf(err, xerror.Normal, query)
 		}
+		tableType, err := rowParser.GetString("Type")
+		if err != nil {
+			return nil, xerror.Wrapf(err, xerror.Normal, "get tables Type failed, query: %s", query)
+		}
+
+		fullTableName := m.GetFullTableName(tableName)
+		log.Debugf("found table: %s, id: %d, type: %s", fullTableName, tableId, tableType)
+
+		if tableType != TABLE_TYPE_OLAP && tableType != TABLE_TYPE_VIEW {
+			// See fe/fe-core/src/main/java/org/apache/doris/backup/BackupHandler.java:backup() for details
+			continue
+		}
 
 		// match parsedDbname == dbname, return dbId
-		fullTableName := m.GetFullTableName(tableName)
-		log.Debugf("found table:%s, tableId:%d", fullTableName, tableId)
 		tableName2IdMap[fullTableName] = tableId
 		tables[tableId] = &TableMeta{
 			DatabaseMeta:   &m.DatabaseMeta,
