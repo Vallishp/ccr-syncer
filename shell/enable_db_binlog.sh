@@ -49,19 +49,19 @@ fi
 echo "enable db ${db} binlog"
 # use mysql client list all tables in db
 tables=$(${mysql_client} -e "use ${db};show tables;" 2>/dev/null | sed '1d') 
-views=$(${mysql_client} -e "select table_name from information_schema.tables where table_schema=\"${db}\" and table_type = 'VIEW'" 2>/dev/null | sed '1d')
+view_or_external_tables=$(${mysql_client} -e "select table_name from information_schema.tables where table_schema=\"${db}\" and table_type in ('VIEW','EXTERNAL TABLE')" 2>/dev/null | sed '1d')
 for table in $tables; do
     echo "table: $table"
 
     # skip view
-    isview="false"
-    for view in $views; do
-      if [ "$view" == "$table" ]; then
-        isview="true"
+    is_view_or_external_table="false"
+    for view_or_external_table in $view_or_external_tables; do
+      if [ "$view_or_external_table" == "$table" ]; then
+        is_view_or_ex_table="true"
         break
       fi
     done
-    if [ "$isview" == "true" ]; then
+    if [ "$is_view_or_external_table" == "true" ]; then
       continue
     fi
 
