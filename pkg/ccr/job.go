@@ -382,6 +382,7 @@ func (j *Job) partialSync() error {
 		snapshotName := j.progress.InMemoryData.(string)
 		backupFinished, err := j.ISrc.CheckBackupFinished(snapshotName)
 		if err != nil {
+			j.progress.NextSubVolatile(BeginCreateSnapshot, snapshotName)
 			return err
 		}
 
@@ -549,6 +550,7 @@ func (j *Job) partialSync() error {
 
 		restoreFinished, err := j.IDest.CheckRestoreFinished(restoreSnapshotName)
 		if err != nil {
+			j.progress.NextSubVolatile(RestoreSnapshot, inMemoryData)
 			return err
 		}
 
@@ -684,6 +686,7 @@ func (j *Job) fullSync() error {
 		snapshotName := j.progress.InMemoryData.(string)
 		backupFinished, err := j.ISrc.CheckBackupFinished(snapshotName)
 		if err != nil {
+			j.progress.NextSubVolatile(BeginCreateSnapshot, snapshotName)
 			return err
 		}
 		if !backupFinished {
@@ -913,6 +916,7 @@ func (j *Job) fullSync() error {
 				log.Infof("the restore is cancelled, the unmatched %s %s is dropped, restore snapshot again", resource, tableName)
 				break
 			} else if err != nil {
+				j.progress.NextSubVolatile(RestoreSnapshot, inMemoryData)
 				return err
 			}
 
