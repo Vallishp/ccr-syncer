@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-suite("test_tbl_part_rename") {
+suite("test_ts_part_rename") {
     def helper = new GroovyShell(new Binding(['suite': delegate]))
             .evaluate(new File("${context.config.suitePath}/../common", "helper.groovy"))
 
-    def tableName = "test_tbl_rename_partition_tbl"
+    def tableName = "test_ts_rename_partition_tbl"
     def test_num = 0
     def insert_num = 5
     def opPartitonNameOrigin = "partitionName_1"
@@ -36,10 +36,8 @@ suite("test_tbl_part_rename") {
 
     helper.enableDbBinlog()
 
-    sql "CREATE DATABASE IF NOT EXISTS TEST_${context.dbName}"
-
     sql "DROP TABLE IF EXISTS ${context.dbName}.${tableName}"
-    sql "DROP TABLE IF EXISTS TEST_${context.dbName}.${tableName}"
+    target_sql "DROP TABLE IF EXISTS TEST_${context.dbName}.${tableName}"
 
     sql """
         CREATE TABLE if NOT EXISTS ${tableName}
@@ -74,14 +72,14 @@ suite("test_tbl_part_rename") {
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM ${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameOrigin}\"
                                 """,
-                                exist, 30, "target"))
+                                exist, 30, "sql"))
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM TEST_${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameNew}\"
                                 """,
                                 notExist, 30, "target"))
@@ -90,14 +88,14 @@ suite("test_tbl_part_rename") {
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM ${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameNew}\"
                                 """,
-                                notExist, 30, "target"))
+                                notExist, 30, "sql"))
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM TEST_${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameNew}\"
                                 """,
                                 notExist, 30, "target"))
@@ -112,35 +110,35 @@ suite("test_tbl_part_rename") {
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM ${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameOrigin}\"
                                 """,
-                                notExist, 30, "target"))
+                                notExist, 30, "sql"))
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM ${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameNew}\"
                                 """,
-                                exist, 30, "target"))
+                                exist, 30, "sql"))
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM TEST_${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameOrigin}\"
                                 """,
                                 notExist, 30, "target"))
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW PARTITIONS
-                                FROM TEST_${context.dbName}.${tableName}
+                                FROM ${tableName}
                                 WHERE PartitionName = \"${opPartitonNameNew}\"
                                 """,
                                 exist, 30, "target"))
 
     logger.info("=== Test 5: Check new partitions key and range ===")
 
-    show_result = target_sql """SHOW PARTITIONS FROM TEST_${context.dbName}.${tableName} WHERE PartitionName = \"${opPartitonNameNew}\" """
+    show_result = sql_return_maparray """SHOW PARTITIONS FROM TEST_${context.dbName}.${tableName} WHERE PartitionName = \"${opPartitonNameNew}\" """
     /*
         *************************** 1. row ***************************
         PartitionId: 13055
@@ -166,5 +164,5 @@ suite("test_tbl_part_rename") {
         CommittedVersion: 1
         RowCount: 0
     */
-    assertEquals(show_result[0][6], "[types: [INT]; keys: [0]; ..types: [INT]; keys: [5]; )")
+    assertEquals(show_result[0].Range, "[types: [INT]; keys: [0]; ..types: [INT]; keys: [5]; )")
 }

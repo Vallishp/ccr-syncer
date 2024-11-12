@@ -46,7 +46,7 @@ suite("test_ts_col_rename") {
 
     helper.enableDbBinlog()
     sql "DROP TABLE IF EXISTS ${dbName}.${tableName}"
-    sql "DROP TABLE IF EXISTS ${dbNameTarget}.${tableName}"
+    target_sql "DROP TABLE IF EXISTS ${dbNameTarget}.${tableName}"
 
     sql """
         CREATE TABLE if NOT EXISTS ${tableName}
@@ -72,7 +72,7 @@ suite("test_ts_col_rename") {
         INSERT INTO ${tableName} VALUES ${values.join(",")}
         """
 
-    result = sql "select * from ${dbName}.${tableName}"
+    result = sql "select * from ${tableName}"
 
     assertEquals(result.size(), insert_num)
 
@@ -82,19 +82,19 @@ suite("test_ts_col_rename") {
     assertTrue(helper.checkRestoreFinishTimesOf("${tableName}", 30))
 
     logger.info("=== Test 1: Check old column exist and new column not exist ===")
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbName}.${tableName}", has_column(oldColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", has_column(oldColName), 60, "sql"))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbName}.${tableName}", not_has_column(newColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", not_has_column(newColName), 60, "sql"))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbNameTarget}.${tableName}", has_column(oldColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", has_column(oldColName), 60, "target_sql"))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbNameTarget}.${tableName}", not_has_column(newColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", not_has_column(newColName), 60, "target_sql"))
 
     logger.info("=== Test 2: Alter table rename column and insert data ===")
 
     sql "ALTER TABLE ${dbName}.${tableName} RENAME COLUMN ${oldColName} ${newColName} "
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbName}.${tableName}", has_column(newColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", has_column(newColName), 60, "sql"))
 
     values = [];
     for (int index = insert_num; index < insert_num * 2; index++) {
@@ -103,24 +103,25 @@ suite("test_ts_col_rename") {
     sql """
         INSERT INTO ${tableName} VALUES ${values.join(",")}
         """
+    sql "sync"
 
     logger.info("=== Test 3: Check old column not exist and new column exist ===")
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbName}.${tableName}", not_has_column(oldColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", not_has_column(oldColName), 60, "sql"))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbName}.${tableName}", has_column(newColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", has_column(newColName), 60, "sql"))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbNameTarget}.${tableName}", not_has_column(oldColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", not_has_column(oldColName), 60, "target_sql"))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${dbNameTarget}.${tableName}", has_column(newColName), 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", has_column(newColName), 60, "target_sql"))
 
-    logger.info("=== Test 4: Insert data and check ===")
+    logger.info("=== Test 4: Check inserted data ===")
 
-    result_first = sql " select * from ${dbName}.${tableName} "
+    result = sql " select * from ${tableName} "
 
-    result_second = sql " select * from ${dbNameTarget}.${tableName} "
+    result_target = target_sql " select * from ${tableName} "
 
-    assertEquals(result_first, result_second)
+    assertEquals(result, result_target)
 
 }
 
