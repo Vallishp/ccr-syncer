@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-suite("test_ts_col_order_by") {
+suite("test_ds_col_alter_type") {
     def helper = new GroovyShell(new Binding(['suite': delegate]))
             .evaluate(new File("${context.config.suitePath}/../common", "helper.groovy"))
 
@@ -28,13 +28,23 @@ suite("test_ts_col_order_by") {
         return res.size() != 0
     }
 
-    def key_columns_order = { res -> Boolean
-        return res[0][0] == 'id' && (res[0][3] == 'YES' || res[0][3] == 'true') &&
-            res[1][0] == 'test' && (res[1][3] == 'YES' || res[1][3] == 'true') &&
-            res[2][0] == 'value1' && (res[2][3] == 'NO' || res[2][3] == 'false') &&
-            res[3][0] == 'value' && (res[3][3] == 'NO' || res[3][3] == 'false')
+    def has_count = { count ->
+        return { res -> Boolean
+            res.size() == count
+        }
     }
 
+    def value_is_big_int = { res -> Boolean
+        // Field == 'value' && 'Type' == 'bigint'
+        return res[2][0] == 'value' && res[2][1] == 'bigint'
+    }
+
+    def id_is_big_int = { res -> Boolean
+        // Field == 'id' && 'Type' == 'bigint'
+        return res[1][0] == 'id' && res[1][1] == 'bigint'
+    }
+
+    helper.enableDbBinlog()
     sql "DROP TABLE IF EXISTS ${dbName}.${tableName}"
     target_sql "DROP TABLE IF EXISTS ${dbNameTarget}.${tableName}"
 
@@ -43,61 +53,69 @@ suite("test_ts_col_order_by") {
         (
             `test` INT,
             `id` INT,
-            `value` INT,
-            `value1` INT
+            `value` INT
         )
         ENGINE=OLAP
         UNIQUE KEY(`test`, `id`)
-        DISTRIBUTED BY HASH(id) BUCKETS 1
+        DISTRIBUTED BY HASH(test) BUCKETS 1
         PROPERTIES (
             "replication_allocation" = "tag.location.default: 1",
             "binlog.enable" = "true"
         )
     """
 
-    logger.info("=== Test 1: add data and sync create ===")
-
     def values = [];
     for (int index = 0; index < insert_num; index++) {
-        values.add("(${test_num}, ${index}, ${index}, ${index})")
+        values.add("(${test_num}, ${index}, ${index})")
     }
     sql """
         INSERT INTO ${tableName} VALUES ${values.join(",")}
         """
     sql "sync"
 
-    helper.ccrJobCreate(tableName)
+    helper.ccrJobDelete()
+    helper.ccrJobCreate()
+
     assertTrue(helper.checkRestoreFinishTimesOf("${tableName}", 30))
 
-    logger.info("=== Test 2: order by column case ===")
-    // binlog type: ALTER_JOB, binlog data:
-    // {
-    //   "type": "SCHEMA_CHANGE",
-    //   "dbId": 11651,
-    //   "tableId": 11688,
-    //   "tableName": "tbl_order_byd6f8a1162e8745039385af479c3df9fe",
-    //   "jobId": 11705,
-    //   "jobState": "FINISHED",
-    //   "rawSql": "ALTER TABLE `regression_test_table_schema_change`.`tbl_order_byd6f8a1162e8745039385af479c3df9fe` ORDER BY `id`, `test`, `value1`, `value`"
-    // }
+    logger.info("=== Test 1: add key column type ===")
+
     sql """
         ALTER TABLE ${tableName}
-        ORDER BY (`id`, `test`, `value1`, `value`)
+        MODIFY COLUMN `id` BIGINT KEY
         """
     sql "sync"
-
-    logger.info("=== Test 3: Check ordered column ===")
-
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW ALTER TABLE COLUMN
                                 FROM ${dbName}
                                 WHERE TableName = "${tableName}" AND State = "FINISHED"
                                 """,
-                                exist, 30))
+                                has_count(1), 30))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", key_columns_order, 60, "sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM `${tableName}`", id_is_big_int, 60, "sql"))
 
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", key_columns_order, 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM `${tableName}`", id_is_big_int, 60, "target_sql"))
+
+    logger.info("=== Test 2: alter value column type ===")
+
+    sql """
+        ALTER TABLE ${tableName}
+        MODIFY COLUMN `value` BIGINT
+        """
+    sql "sync"
+
+    logger.info("=== Test 2: Check column type ===")
+
+    assertTrue(helper.checkShowTimesOf("""
+                                SHOW ALTER TABLE COLUMN
+                                FROM ${dbName}
+                                WHERE TableName = "${tableName}" AND State = "FINISHED"
+                                """,
+                                has_count(2), 30))
+
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", value_is_big_int, 60, "sql"))
+
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", value_is_big_int, 60, "target_sql"))
 }
 

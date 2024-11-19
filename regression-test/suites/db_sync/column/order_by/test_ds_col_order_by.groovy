@@ -14,7 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-suite("test_ts_col_order_by") {
+suite("test_ds_col_order_by") {
     def helper = new GroovyShell(new Binding(['suite': delegate]))
             .evaluate(new File("${context.config.suitePath}/../common", "helper.groovy"))
 
@@ -35,6 +35,7 @@ suite("test_ts_col_order_by") {
             res[3][0] == 'value' && (res[3][3] == 'NO' || res[3][3] == 'false')
     }
 
+    helper.enableDbBinlog()
     sql "DROP TABLE IF EXISTS ${dbName}.${tableName}"
     target_sql "DROP TABLE IF EXISTS ${dbNameTarget}.${tableName}"
 
@@ -66,20 +67,11 @@ suite("test_ts_col_order_by") {
         """
     sql "sync"
 
-    helper.ccrJobCreate(tableName)
+    helper.ccrJobCreate()
     assertTrue(helper.checkRestoreFinishTimesOf("${tableName}", 30))
 
     logger.info("=== Test 2: order by column case ===")
-    // binlog type: ALTER_JOB, binlog data:
-    // {
-    //   "type": "SCHEMA_CHANGE",
-    //   "dbId": 11651,
-    //   "tableId": 11688,
-    //   "tableName": "tbl_order_byd6f8a1162e8745039385af479c3df9fe",
-    //   "jobId": 11705,
-    //   "jobState": "FINISHED",
-    //   "rawSql": "ALTER TABLE `regression_test_table_schema_change`.`tbl_order_byd6f8a1162e8745039385af479c3df9fe` ORDER BY `id`, `test`, `value1`, `value`"
-    // }
+
     sql """
         ALTER TABLE ${tableName}
         ORDER BY (`id`, `test`, `value1`, `value`)

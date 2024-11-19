@@ -18,6 +18,8 @@ suite("test_ts_col_alter_type") {
     def helper = new GroovyShell(new Binding(['suite': delegate]))
             .evaluate(new File("${context.config.suitePath}/../common", "helper.groovy"))
 
+    def dbName = context.dbName
+    def dbNameTarget = "TEST_" + context.dbName
     def tableName = "tbl_" + helper.randomSuffix()
     def test_num = 0
     def insert_num = 5
@@ -32,7 +34,20 @@ suite("test_ts_col_alter_type") {
         }
     }
 
-    sql "DROP TABLE IF EXISTS ${tableName}"
+    def value_is_big_int = { res -> Boolean
+        // Field == 'value' && 'Type' == 'bigint'
+        return res[2][0] == 'value' && res[2][1] == 'bigint'
+    }
+
+    def id_is_big_int = { res -> Boolean
+        // Field == 'id' && 'Type' == 'bigint'
+        return res[1][0] == 'id' && res[1][1] == 'bigint'
+    }
+
+    helper.enableDbBinlog()
+    sql "DROP TABLE IF EXISTS ${dbName}.${tableName}"
+    target_sql "DROP TABLE IF EXISTS ${dbNameTarget}.${tableName}"
+
     sql """
         CREATE TABLE if NOT EXISTS ${tableName}
         (
@@ -58,7 +73,9 @@ suite("test_ts_col_alter_type") {
         """
     sql "sync"
 
+    helper.ccrJobDelete(tableName)
     helper.ccrJobCreate(tableName)
+
     assertTrue(helper.checkRestoreFinishTimesOf("${tableName}", 30))
 
     logger.info("=== Test 1: add key column type ===")
@@ -80,15 +97,12 @@ suite("test_ts_col_alter_type") {
 
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW ALTER TABLE COLUMN
-                                FROM ${context.dbName}
+                                FROM ${dbName}
                                 WHERE TableName = "${tableName}" AND State = "FINISHED"
                                 """,
                                 has_count(1), 30))
 
-    def id_is_big_int = { res -> Boolean
-        // Field == 'id' && 'Type' == 'bigint'
-        return res[1][0] == 'id' && res[1][1] == 'bigint'
-    }
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM `${tableName}`", id_is_big_int, 60, "sql"))
 
     assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM `${tableName}`", id_is_big_int, 60, "target_sql"))
 
@@ -109,17 +123,17 @@ suite("test_ts_col_alter_type") {
         """
     sql "sync"
 
+    logger.info("=== Test 2: Check column type ===")
+
     assertTrue(helper.checkShowTimesOf("""
                                 SHOW ALTER TABLE COLUMN
-                                FROM ${context.dbName}
+                                FROM ${dbName}
                                 WHERE TableName = "${tableName}" AND State = "FINISHED"
                                 """,
-                                has_count(1), 30))
+                                has_count(2), 30))
 
-    def value_is_big_int = { res -> Boolean
-        // Field == 'value' && 'Type' == 'bigint'
-        return res[2][0] == 'value' && res[2][1] == 'bigint'
-    }
-    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM `${tableName}`", value_is_big_int, 60, "target_sql"))
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", value_is_big_int, 60, "sql"))
+
+    assertTrue(helper.checkShowTimesOf("SHOW COLUMNS FROM ${tableName}", value_is_big_int, 60, "target_sql"))
 }
 
