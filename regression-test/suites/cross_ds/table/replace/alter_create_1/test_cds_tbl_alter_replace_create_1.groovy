@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-suite("test_cds_tbl_alter_replace_create") {
+suite("test_cds_tbl_alter_replace_create_1") {
     def helper = new GroovyShell(new Binding(['suite': delegate]))
             .evaluate(new File("${context.config.suitePath}/../common", "helper.groovy"))
 
@@ -107,6 +107,9 @@ suite("test_cds_tbl_alter_replace_create") {
     sql "INSERT INTO ${oldTableName} VALUES (3, 300, 3), (300, 3, 3)"  // o:n, 6:2
     sql "ALTER TABLE ${oldTableName} REPLACE WITH TABLE ${newTableName} PROPERTIES (\"swap\"=\"false\")"  // o:n, 2:6
     sql "INSERT INTO ${oldTableName} VALUES (4, 400)"            // o:n, 3:6
+    helper.ccrJobResume()
+
+    assertTrue(helper.checkSelectTimesOf("SELECT * FROM ${oldTableName}", 3, 60))
 
     logger.info("create new table again")
     sql """
@@ -129,10 +132,10 @@ suite("test_cds_tbl_alter_replace_create") {
     """
     sql "INSERT INTO ${newTableName} VALUES (3, 300), (300, 3)"
 
-    helper.ccrJobResume()
-
-    assertTrue(helper.checkSelectTimesOf("SELECT * FROM ${oldTableName}", 3, 60))
-    assertTrue(helper.checkSelectTimesOf("SELECT * FROM ${newTableName}", 2, 60))
+    def expect_res = { res ->
+        return res.size() == 2
+    }
+    assertTrue(helper.checkShowTimesOf("SELECT * FROM ${newTableName}", expect_res, 60, "target"))
 
     // no fullsync are triggered
     // def last_job_progress = helper.get_job_progress()
