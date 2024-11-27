@@ -66,7 +66,7 @@ suite("test_ts_prop_generated_column") {
 
     assertTrue(target_res[0][1].contains("`total_value` decimal(10,2) AS ((`price` * CAST(`quantity` AS decimalv3(10,0)))) NULL"))
 
-    target_res = target_sql_return_maparray "select * from ${tableName}"
+    target_res = target_sql_return_maparray "select * from ${tableName} order by total_value"
 
     assertEquals(target_res[0].total_value,100.00)
     assertEquals(target_res[1].total_value,200.00)

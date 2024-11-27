@@ -31,6 +31,7 @@ suite("test_ds_prop_dynamic_partition") {
     def checkShowResult = { target_res, property -> Boolean
         if(!target_res[0][1].contains(property)){
             logger.info("don't contains {}", property)
+            return false
         }
         return true 
     }
@@ -134,8 +135,8 @@ suite("test_ds_prop_dynamic_partition") {
         )
     """
 
-    helper.ccrJobDelete(tableName)
-    helper.ccrJobCreate(tableName)
+    helper.ccrJobDelete()
+    helper.ccrJobCreate()
 
     assertTrue(helper.checkRestoreFinishTimesOf("${tableName}_range_by_day", 30))
     assertTrue(helper.checkRestoreFinishTimesOf("${tableName}_range_by_week", 30))
@@ -151,7 +152,7 @@ suite("test_ds_prop_dynamic_partition") {
 
     def target_res = target_sql "SHOW CREATE TABLE ${tableName}_range_by_day"
 
-    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"true\""))
+    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"false\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_unit\" = \"DAY\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_zone\" = \"Asia/Shanghai\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.start\" = \"-2\""))
@@ -165,7 +166,7 @@ suite("test_ds_prop_dynamic_partition") {
 
     target_res = target_sql "SHOW CREATE TABLE ${tableName}_range_by_week"
 
-    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"true\""))
+    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"false\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_unit\" = \"WEEK\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_zone\" = \"Asia/Shanghai\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.start\" = \"-2\""))
@@ -180,7 +181,7 @@ suite("test_ds_prop_dynamic_partition") {
 
     target_res = target_sql "SHOW CREATE TABLE ${tableName}_range_by_month"
 
-    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"true\""))
+    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"false\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_unit\" = \"MONTH\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_zone\" = \"Asia/Shanghai\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.start\" = \"-2\""))

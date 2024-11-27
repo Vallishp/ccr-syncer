@@ -15,17 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-suite("test_ts_table_replication_allocation") {
+suite("test_ts_prop_repli_alloc") {
     def helper = new GroovyShell(new Binding(['suite': delegate]))
             .evaluate(new File("${context.config.suitePath}/../common", "helper.groovy"))
 
     def dbName = context.dbName
     def tableName = "tbl_" + helper.randomSuffix()
-    def test_num = 0
-    def insert_num = 5
 
     def exist = { res -> Boolean
         return res.size() != 0
+    }
+    
+    def extractReplicationAllocation = { createTableStatement -> String
+        def matcher = createTableStatement[0][1] =~ /"replication_allocation" = "([^"]+)"/
+        if (matcher) {
+            return matcher[0][1]
+        }
+        return null
     }
 
     sql "DROP TABLE IF EXISTS ${dbName}.${tableName}"
@@ -61,7 +67,13 @@ suite("test_ts_table_replication_allocation") {
 
     assertTrue(helper.checkShowTimesOf("SHOW TABLES LIKE \"${tableName}\"", exist, 60, "target"))
 
+    def res = sql "SHOW CREATE TABLE ${tableName}"
+
     def target_res = target_sql "SHOW CREATE TABLE ${tableName}"
 
-    assertTrue(target_res[0][1].contains("\"replication_allocation\" = \"tag.location.default: 1\""))
+    def res_replication_allocation = extractReplicationAllocation(res)
+
+    def target_res_replication_allocation = extractReplicationAllocation(target_res)
+
+    assertTrue(res_replication_allocation == target_res_replication_allocation)
 }

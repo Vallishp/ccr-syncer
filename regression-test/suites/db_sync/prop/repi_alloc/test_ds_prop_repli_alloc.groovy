@@ -21,11 +21,17 @@ suite("test_ds_prop_repli_alloc") {
 
     def dbName = context.dbName
     def tableName = "tbl_" + helper.randomSuffix()
-    def test_num = 0
-    def insert_num = 5
 
     def exist = { res -> Boolean
         return res.size() != 0
+    }
+    
+    def extractReplicationAllocation = { createTableStatement -> String
+        def matcher = createTableStatement[0][1] =~ /"replication_allocation" = "([^"]+)"/
+        if (matcher) {
+            return matcher[0][1]
+        }
+        return null
     }
 
     sql "DROP TABLE IF EXISTS ${dbName}.${tableName}"
@@ -60,7 +66,13 @@ suite("test_ds_prop_repli_alloc") {
 
     assertTrue(helper.checkShowTimesOf("SHOW TABLES LIKE \"${tableName}\"", exist, 60, "target"))
 
+    def res = sql "SHOW CREATE TABLE ${tableName}"
+
     def target_res = target_sql "SHOW CREATE TABLE ${tableName}"
 
-    assertTrue(target_res[0][1].contains("\"replication_allocation\" = \"tag.location.default: 1\""))
+    def res_replication_allocation = extractReplicationAllocation(res)
+
+    def target_res_replication_allocation = extractReplicationAllocation(target_res)
+
+    assertTrue(res_replication_allocation == target_res_replication_allocation)
 }

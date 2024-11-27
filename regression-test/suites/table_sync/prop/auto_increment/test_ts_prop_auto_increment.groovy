@@ -62,10 +62,9 @@ suite("test_ts_prop_auto_increment") {
 
     assertTrue(target_res[0][1].contains("`id` bigint NOT NULL AUTO_INCREMENT(1)"))
 
-    target_res = target_sql "select * from ${tableName} order by id" 
+    res = sql "select * from ${tableName} order by id"
 
-    for (int index = 0; index < insert_num; index++) {
-        assertEquals(target_res[index][0],index + 1)
-        assertEquals(target_res[index][1],insert_num)
-    }
+    target_res = target_sql "select * from ${tableName} order by id"
+
+    assertEquals(target_res, res)
 }
