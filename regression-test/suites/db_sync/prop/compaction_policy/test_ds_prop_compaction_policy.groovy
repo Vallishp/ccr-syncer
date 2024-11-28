@@ -29,6 +29,24 @@ suite("test_ds_prop_compaction_policy") {
         return res.size() != 0
     }
 
+    def checkShowResult = { res, property -> Boolean
+        if(!res[0][1].contains(property)){
+            logger.info("don't contains {}", property)
+            return false
+        }
+        return true 
+    }
+
+    def existCompaction = { res -> Boolean
+        assertTrue(checkShowResult(res, "\"compaction_policy\" = \"time_series\""))
+        assertTrue(checkShowResult(res, "\"time_series_compaction_goal_size_mbytes\" = \"2048\""))
+        assertTrue(checkShowResult(res, "\"time_series_compaction_file_count_threshold\" = \"3000\""))
+        assertTrue(checkShowResult(res, "\"time_series_compaction_time_threshold_seconds\" = \"4000\""))
+        assertTrue(checkShowResult(res, "\"time_series_compaction_empty_rowsets_threshold\" = \"6\""))
+        assertTrue(checkShowResult(res, "\"time_series_compaction_level_threshold\" = \"2\""))
+        return true
+    }
+
     sql "DROP TABLE IF EXISTS ${dbName}.${tableName}"
     target_sql "DROP TABLE IF EXISTS TEST_${dbName}.${tableName}"
 
@@ -49,7 +67,12 @@ suite("test_ds_prop_compaction_policy") {
         PROPERTIES (
             "replication_allocation" = "tag.location.default: 1",
             "binlog.enable" = "true",
-            "compaction_policy" = "time_series"
+            "compaction_policy" = "time_series",
+            "time_series_compaction_goal_size_mbytes" = "2048",
+            "time_series_compaction_file_count_threshold" = "3000",
+            "time_series_compaction_time_threshold_seconds" = "4000",
+            "time_series_compaction_empty_rowsets_threshold" = "6",
+            "time_series_compaction_level_threshold" = "2"
         )
     """
 
@@ -62,8 +85,6 @@ suite("test_ds_prop_compaction_policy") {
 
     assertTrue(helper.checkShowTimesOf("SHOW TABLES LIKE \"${tableName}\"", exist, 60, "target"))
 
-    def target_res = target_sql "SHOW CREATE TABLE ${tableName}"
-
-    assertTrue(target_res[0][1].contains("\"compaction_policy\" = \"time_series\""))
+    assertTrue(helper.checkShowTimesOf("SHOW CREATE TABLE ${tableName}", existCompaction, 60, "sql"))
 
 }
