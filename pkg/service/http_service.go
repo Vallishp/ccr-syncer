@@ -518,7 +518,7 @@ func (s *HttpService) jobProgressHandler(w http.ResponseWriter, r *http.Request)
 
 	type result struct {
 		*defaultResult
-		JobProgress string `json:"job_progress"`
+		JobProgress ccr.JobProgress `json:"job_progress"`
 	}
 
 	var jobResult *result
@@ -549,12 +549,22 @@ func (s *HttpService) jobProgressHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if jobProgress, err := s.db.GetProgress(request.Name); err != nil {
+	if jobProgressData, err := s.db.GetProgress(request.Name); err != nil {
 		log.Warnf("get job progress failed: %+v", err)
 		jobResult = &result{
 			defaultResult: newErrorResult(err.Error()),
 		}
 	} else {
+		var jobProgress ccr.JobProgress
+		err := json.Unmarshal([]byte(jobProgressData), &jobProgress)
+		if err != nil {
+			log.Warnf("unmarshal get job progress error")
+			jobResult = &result{
+				defaultResult: newErrorResult(err.Error()),
+			}
+			return
+		}
+		jobProgress.PersistData = ""
 		jobResult = &result{
 			defaultResult: newSuccessResult(),
 			JobProgress:   jobProgress,
