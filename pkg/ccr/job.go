@@ -380,11 +380,14 @@ func (j *Job) handlePartialSyncTableNotFound() error {
 		return nil
 	} else if newTableName, err := j.srcMeta.GetTableNameById(tableId); err != nil {
 		return err
-	} else {
+	} else if j.SyncType == DBSync {
 		// The table might be renamed, so we need to update the table name.
 		log.Warnf("force new partial snapshot, since table %d has renamed from %s to %s", tableId, table, newTableName)
 		replace := true // replace the old data to avoid blocking reading
 		return j.newPartialSnapshot(tableId, newTableName, nil, replace)
+	} else {
+		return xerror.Errorf(xerror.Normal, "table sync but table has renamed from %s to %s, table id %d",
+			table, newTableName, tableId)
 	}
 }
 
@@ -510,6 +513,10 @@ func (j *Job) partialSync() error {
 		} else if backupObject.Id != tableId {
 			log.Warnf("partial sync table %s id not match, force full sync. table id %d, backup object id %d",
 				table, tableId, backupObject.Id)
+			if j.SyncType == TableSync {
+				log.Infof("reset src table id from %d to %d, table %s", j.Src.TableId, backupObject.Id, table)
+				j.Src.TableId = backupObject.Id
+			}
 			return j.newSnapshot(j.progress.CommitSeq)
 		} else if _, ok := tableCommitSeqMap[backupObject.Id]; !ok {
 			return xerror.Errorf(xerror.Normal, "commit seq not found, table id %d, table name: %s", backupObject.Id, table)
@@ -860,7 +867,15 @@ func (j *Job) fullSync() error {
 		views := backupJobInfo.Views()
 
 		if j.SyncType == TableSync {
-			if _, ok := tableCommitSeqMap[j.Src.TableId]; !ok {
+			if backupObject, ok := backupJobInfo.BackupObjects[j.Src.Table]; !ok {
+				return xerror.Errorf(xerror.Normal, "table %s not found in backup objects", j.Src.Table)
+			} else if backupObject.Id != j.Src.TableId {
+				// Might be the table has been replace.
+				log.Warnf("full sync table %s id not match, force full sync and reset table id from %d to %d",
+					j.Src.Table, j.Src.TableId, backupObject.Id)
+				j.Src.TableId = backupObject.Id
+				return j.newSnapshot(j.progress.CommitSeq)
+			} else if _, ok := tableCommitSeqMap[j.Src.TableId]; !ok {
 				return xerror.Errorf(xerror.Normal, "table id %d, commit seq not found", j.Src.TableId)
 			}
 		} else {
@@ -953,10 +968,10 @@ func (j *Job) fullSync() error {
 		}
 		if len(j.progress.TableAliases) > 0 {
 			tableRefs = make([]*festruct.TTableRef, 0)
-            viewMap := make(map[string]interface{})
+			viewMap := make(map[string]interface{})
 			for _, viewName := range inMemoryData.Views {
 				log.Debugf("fullsync alias with view ref %s", viewName)
-                viewMap[viewName] = nil
+				viewMap[viewName] = nil
 				tableRef := &festruct.TTableRef{Table: utils.ThriftValueWrapper(viewName)}
 				tableRefs = append(tableRefs, tableRef)
 			}
@@ -965,9 +980,9 @@ func (j *Job) fullSync() error {
 					log.Debugf("fullsync alias skip table ref %s because it has alias %s", tableName, alias)
 					continue
 				}
-                if _, ok := viewMap[tableName]; ok {
-                    continue
-                }
+				if _, ok := viewMap[tableName]; ok {
+					continue
+				}
 				log.Debugf("fullsync alias with table ref %s", tableName)
 				tableRef := &festruct.TTableRef{Table: utils.ThriftValueWrapper(tableName)}
 				tableRefs = append(tableRefs, tableRef)
@@ -2304,12 +2319,11 @@ func (j *Job) handleReplaceTable(binlog *festruct.TBinlog) error {
 }
 
 func (j *Job) handleReplaceTableRecord(commitSeq int64, record *record.ReplaceTableRecord) error {
-	// don't support replace table when table sync
-	//
-	// replace table will change the table id, and it depends the new table exists in the dest cluster.
 	if j.SyncType == TableSync {
-		log.Warnf("replace table is not supported when table sync, consider rebuilding this job instead")
-		return xerror.Errorf(xerror.Normal, "replace table is not supported when table sync, consider rebuilding this job instead")
+		log.Infof("replace table %s with fullsync in table sync, reset src table id from %d to %d, swap: %t",
+			record.OriginTableName, record.OriginTableId, record.NewTableId, record.SwapTable)
+		j.Src.TableId = record.NewTableId
+		return j.newSnapshot(commitSeq)
 	}
 
 	if j.isBinlogCommitted(record.OriginTableId, commitSeq) {
