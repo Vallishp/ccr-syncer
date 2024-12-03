@@ -2580,12 +2580,19 @@ func (j *Job) handleRecoverInfo(binlog *festruct.TBinlog) error {
 	return j.handleRecoverInfoRecord(binlog.GetCommitSeq(), recoverInfo)
 }
 
+func isRecoverTable(recoverInfo *record.RecoverInfo) bool {
+	if recoverInfo.PartitionName == "" || recoverInfo.PartitionId == -1 {
+		return true
+	}
+	return false
+}
+
 func (j *Job) handleRecoverInfoRecord(commitSeq int64, recoverInfo *record.RecoverInfo) error {
 	if j.isBinlogCommitted(recoverInfo.TableId, commitSeq) {
 		return nil
 	}
 
-	if recoverInfo.PartitionName == "" {
+	if isRecoverTable(recoverInfo) {
 		var tableName string
 		if recoverInfo.NewTableName != "" {
 			tableName = recoverInfo.NewTableName

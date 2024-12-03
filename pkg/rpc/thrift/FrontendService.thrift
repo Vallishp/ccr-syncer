@@ -1214,7 +1214,6 @@ enum TBinlogType {
   //    MIN_UNKNOWN = 18,
   //    UNKNOWN_3 = 19,
   MIN_UNKNOWN = 25,
-  UNKNOWN_9 = 25,
   UNKNOWN_10 = 26,
   UNKNOWN_11 = 27,
   UNKNOWN_12 = 28,

@@ -29,9 +29,10 @@ func NewRecoverInfoFromJson(data string) (*RecoverInfo, error) {
 		return nil, xerror.Errorf(xerror.Normal, "table id not found")
 	}
 
-	/* need check for db level not supported.
-	 */
-
+	// table name must exist. partition name not checked since optional.
+	if recoverInfo.TableName == "" {
+		return nil, xerror.Errorf(xerror.Normal, "Table Name can not be null")
+	}
 	return &recoverInfo, nil
 }
 
