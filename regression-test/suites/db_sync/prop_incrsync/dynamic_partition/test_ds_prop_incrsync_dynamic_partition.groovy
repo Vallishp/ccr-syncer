@@ -44,7 +44,12 @@ suite("test_ds_prop_incrsync_incsync_dynamic_partition") {
     target_sql "DROP TABLE IF EXISTS TEST_${dbName}.${tableNameFull}_range_by_week"
     target_sql "DROP TABLE IF EXISTS TEST_${dbName}.${tableNameFull}_range_by_month"
 
-
+    sql "DROP TABLE IF EXISTS ${dbName}.${tableNameIncrement}_range_by_day"
+    sql "DROP TABLE IF EXISTS ${dbName}.${tableNameIncrement}_range_by_week"
+    sql "DROP TABLE IF EXISTS ${dbName}.${tableNameIncrement}_range_by_month"
+    target_sql "DROP TABLE IF EXISTS TEST_${dbName}.${tableNameIncrement}_range_by_day"
+    target_sql "DROP TABLE IF EXISTS TEST_${dbName}.${tableNameIncrement}_range_by_week"
+    target_sql "DROP TABLE IF EXISTS TEST_${dbName}.${tableNameIncrement}_range_by_month"
 
     helper.enableDbBinlog()
     helper.ccrJobDelete()
@@ -151,7 +156,7 @@ suite("test_ds_prop_incrsync_incsync_dynamic_partition") {
     assertTrue(helper.checkShowTimesOf("SHOW TABLES LIKE \"${tableNameFull}_range_by_week\"", exist, 60, "target"))
     assertTrue(helper.checkShowTimesOf("SHOW TABLES LIKE \"${tableNameFull}_range_by_month\"", exist, 60, "target"))
 
-    target_res = target_sql "SHOW CREATE TABLE ${tableNameFull}_range_by_day"
+    def target_res = target_sql "SHOW CREATE TABLE ${tableNameFull}_range_by_day"
 
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"false\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_unit\" = \"DAY\""))
@@ -294,7 +299,7 @@ suite("test_ds_prop_incrsync_incsync_dynamic_partition") {
 
     target_res = target_sql "SHOW CREATE TABLE ${tableNameIncrement}_range_by_day"
 
-    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"false\""))
+    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"true\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_unit\" = \"DAY\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_zone\" = \"Asia/Shanghai\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.start\" = \"-2\""))
@@ -308,7 +313,7 @@ suite("test_ds_prop_incrsync_incsync_dynamic_partition") {
 
     target_res = target_sql "SHOW CREATE TABLE ${tableNameIncrement}_range_by_week"
 
-    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"false\""))
+    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"true\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_unit\" = \"WEEK\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_zone\" = \"Asia/Shanghai\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.start\" = \"-2\""))
@@ -323,7 +328,7 @@ suite("test_ds_prop_incrsync_incsync_dynamic_partition") {
 
     target_res = target_sql "SHOW CREATE TABLE ${tableNameIncrement}_range_by_month"
 
-    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"false\""))
+    assertTrue(checkShowResult(target_res, "\"dynamic_partition.enable\" = \"true\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_unit\" = \"MONTH\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.time_zone\" = \"Asia/Shanghai\""))
     assertTrue(checkShowResult(target_res, "\"dynamic_partition.start\" = \"-2\""))
