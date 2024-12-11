@@ -189,6 +189,12 @@ class Helper {
             """
     }
 
+    void disableDbBinlog() {
+        suite.sql """
+            ALTER DATABASE ${context.dbName} SET properties ("binlog.enable" = "false")
+            """
+    }
+
     Boolean checkShowTimesOf(sqlString, myClosure, times, func = "sql") {
         Boolean ret = false
         List<List<Object>> res
